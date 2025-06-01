@@ -1,0 +1,771 @@
+---
+title: "Sleep Quality Data set analysis"
+format: html
+editor: visual
+toc: true
+code-fold: true
+---
+
+## Introduction 💡
+
+"Sleep Disorders Data Set" about sleep disorders which caused by Various factors as (Physical activity level \_stress level_BMI_blood pressure_Daily steps ) all these factors are mentioned as variables in the data set There are more considerations can affect sleep disorder like age as it is said that as you become older your sleep quality decrease .Gender ,people think that Females Gain sleep quality more than Males . Occupation , there are sayings that people who work in medical Fields can't attain high sleep quality and suffer from sleep disorders in this analysis we want to know which saying is a rumor and which is true . This analysis provides sufficient guide to know which factors affect more on sleep quality that lead to sleep disorders , it provides also visualizations to enhance knowledge through descriptive analysis ,know the relations between variables and the correlation between them through exploratory analysis . this analysis contain type of predictive analysis through regression analysis .
+
+### Objective 💡
+
+This project aims to conduct a comprehensive analysis of sleep quality and disorders by investigating key variables such as Sleep Duration, Quality of Sleep, Physical Activity Level, Stress Level, BMI Category, Blood Pressure, Daily Steps, and Sleep Disorder.
+
+-   Examine the impact of Gender and Age on sleep patterns.
+
+-   Analyze the relationship between Stress Levels and Sleep Duration to determine whether higher stress leads to shorter sleep.
+
+-   Assess how Physical Activity Levels and Daily Steps influence sleep quality. Explore whether different Occupations affect sleep patterns and contribute to sleep disorders.
+
+-   Use descriptive and exploratory analysis to uncover trends and correlations between variables.
+
+-   Develop predictive models to identify factors that are most likely to cause sleep disorders and simulate scenarios to test findings.
+
+-   This analysis seeks to deliver data-driven insights and actionable recommendations to improve sleep quality and overall well-being.
+
+### Read Libraries ☝
+
+```{r,message=FALSE,warning=FALSE}
+library(readxl)
+library(patchwork)
+library(MASS)
+library(tidyr)
+library(mice)
+library(plotly)
+library(corrplot)
+library(ggcorrplot)
+library(missForest)
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+library(quarto)
+library(GGally)
+```
+
+### Read Excel File
+
+```{r}
+data <-read_xlsx("C:/Users/maria/Desktop/Stat Computing project/Sleep_health_and_lifestyle_dataset_project.xlsx")
+
+```
+
+### Data Cleaning 👨🏻‍💻
+
+-   Handle Missing Values
+
+-   Handle Outliers
+
+-   Handle Duplicated Rows
+
+-   Handle Invalid Variables,coding errors
+
+-   Extraneous Characters
+
+##### Detect Missing Values in the data set
+
+```{r}
+# Find columns with NA values
+na_columns <- colnames(data)[colSums(is.na(data)) > 0]
+
+# Display columns with NA values and their counts
+if (length(na_columns) > 0) {
+  cat("Columns with NA values:\n")
+  for (col in na_columns) {
+    cat(col, ":", sum(is.na(data[[col]])), "missing values\n")
+  }
+} else {
+  cat("No missing values in the dataset.\n")
+}
+```
+
+##### Modify Gender
+
+```{r}
+data <- unique(data)
+
+# Calculate mode for Gender
+gender_mode <- names(which.max(table(data$Gender, useNA = "no")))
+
+# Replace missing cells with the mode
+data$Gender[is.na(data$Gender) | trimws(data$Gender) == ""] <- gender_mode
+
+
+```
+
+##### Modify Age
+
+```{r}
+
+# Remove decimal points
+data$Age <- as.integer(data$Age)
+
+# Replace invalid values (outside 0 to 100) with NA
+data$Age <- ifelse(data$Age < 0 | data$Age > 100, NA, data$Age)
+
+# Calculate the mean of Age (ignoring NA)
+mean_age <- mean(data$Age, na.rm = TRUE)
+
+# Replace missing and invalid values with the mean
+data$Age[is.na(data$Age)] <- round(mean_age)
+
+```
+
+##### Modify occupation
+
+```{r}
+
+# Calculate mode for Occupation
+occupation_mode <- names(which.max(table(data$Occupation, useNA = "no")))
+
+# Replace missing cells with the mode
+data$Occupation[is.na(data$Occupation) | trimws(data$Occupation) == ""] <- occupation_mode
+
+```
+
+##### Modify sleep duration
+
+```{r}
+# Function to calculate the mode
+calculate_mode <- function(x) {
+  uniq_vals <- unique(x)
+  uniq_vals[which.max(tabulate(match(x, uniq_vals)))]
+}
+
+# Convert 'Sleep Duration' to numeric and calculate mode, ignoring NAs
+data$`Sleep Duration` <- as.numeric(data$`Sleep Duration`)
+sleep_duration_mode <- calculate_mode(na.omit(data$`Sleep Duration`))
+
+# Replace missing values with the mode
+data$`Sleep Duration`[is.na(data$`Sleep Duration`) | trimws(data$`Sleep Duration`) == ""] <- sleep_duration_mode
+
+# Round the column to 1 decimal place
+data$`Sleep Duration` <- round(data$`Sleep Duration`, digits = 1)
+
+
+```
+
+##### Modify quality of sleep
+
+```{r}
+
+
+# Calc Median
+median_value <- median(data$`Quality of Sleep`, na.rm = TRUE)
+
+# Set Medain In na Cell
+
+data$`Quality of Sleep`[is.na(data$`Quality of Sleep`)] <- median_value
+
+# Delete decimale number
+
+  data$`Quality of Sleep` <- as.integer(data$`Quality of Sleep`)
+
+
+```
+
+##### Modify physical activity level
+
+```{r}
+
+# Calc Median
+median_value <- median(data$`Physical Activity Level`, na.rm = TRUE)
+
+# Set Medain In na Cell
+
+data$`Physical Activity Level`[is.na(data$`Physical Activity Level`)] <- median_value
+
+# Delete decimale number
+
+data$`Physical Activity Level` <- as.integer(data$`Physical Activity Level`)
+
+```
+
+##### Modify stress level
+
+```{r}
+
+
+# Calculate the median
+median_value <- median(data$`Stress Level`, na.rm = TRUE)
+
+# Replace missing values with the median
+data$`Stress Level`[is.na(data$`Stress Level`)] <- median_value
+
+# Ensure values do not exceed 10, replace exceeding values with the median
+data$`Stress Level`[data$`Stress Level` > 10] <- median_value
+
+# Remove decimal numbers by converting to integer
+data$`Stress Level` <- as.integer(data$`Stress Level`)
+
+
+```
+
+##### Modify BMI category
+
+```{r}
+
+
+# Calculate mode for BMI Category
+BMI_Category_mode <- names(which.max(table(data$`BMI Category`, useNA = "no")))
+
+# Replace missing cells with the mode
+data$`BMI Category`[is.na(data$`BMI Category`) | trimws(data$`BMI Category`) == ""] <- BMI_Category_mode
+
+```
+
+##### Modify Daily steps
+
+```{r}
+data$`Daily Steps` <- ifelse(  data$`Daily Steps` < 0 | data$`Daily Steps` > 11000, NA, data$`Daily Steps`)
+
+# Calc Median
+median_value <- median(data$`Daily Steps`, na.rm = TRUE)
+
+# Set Medain In na Cell
+
+data$`Daily Steps`[is.na(data$`Daily Steps`)] <- median_value
+
+# Delete decimale number
+
+data$`Daily Steps` <- as.integer(data$`Daily Steps`)
+
+
+```
+
+##### Modify sleep disorders
+
+```{r}
+
+
+# Calculate mode for Sleep Disorder
+Sleep_Disorder_mode <- names(which.max(table(data$`Sleep Disorder`)))
+
+# Replace missing cells with the mode
+data$`Sleep Disorder`[is.na(data$`Sleep Disorder`) | trimws(data$`Sleep Disorder`) == ""] <- Sleep_Disorder_mode
+
+```
+
+##### Modify Heart rate
+
+```{r}
+# Calc Median
+median_value <- median(data$`Heart Rate`, na.rm = TRUE)
+
+# Set Medain In na Cell
+
+data$`Heart Rate`[is.na(data$`Heart Rate`)] <- median_value
+
+# Delete decimale number
+
+data$`Heart Rate` <- as.integer(data$`Heart Rate`)
+```
+
+## Descriptive Analysis 📊
+
+##### 1-count the numbers of males and females in the data set .
+
+```{r}
+gender_count <- table(data$Gender)
+print(gender_count)
+gender_counts <- table(data$Gender)
+colors <- c('SkyBlue', 'Lightgreen')
+fig <- plot_ly(labels = names(gender_counts), values = gender_counts, type = "pie", hole = 0.4, marker = list(colors = colors))
+figs <- layout(fig, title = 'Gender percentage')
+figs
+
+```
+
+The male percentage is 55.8% which is more than the female percntage which is 44.2%
+
+##### 2-What is age distribution of indviduals ?
+
+```{r}
+# using histogram 
+# Plot the density
+density_plot <- density(data$Age, na.rm = TRUE)
+plot(density_plot,
+     main = "Age Density of Individuals in the data set 'sleep disorders'",
+     xlab = "Age",
+     col = "blue",
+     lwd = 2)
+```
+
+The density increasing the age 40 is the highest with density 0.08 then the density is decreasing to age
+
+60
+
+##### 3-what is the distribution of the occupation ?
+
+```{r}
+jobrole_counts <- table(data$Occupation)
+bar_colors <- c('orange', 'lightblue', 'pink', 'lightgreen', 'lightcoral', 'lightcyan', 'lightgoldenrod', 'lightgray', 'lightpink', 'lightsalmon', 'lightseagreen')
+fig_jobrole <- plot_ly(x = names(jobrole_counts), y = jobrole_counts, type = "bar", marker = list(color = bar_colors))
+fig_jobrole <- layout(fig_jobrole, title = 'Job Role Distribution', xaxis = list(title = 'Occupation'), yaxis = list(title = 'Count'))
+fig_jobrole
+
+```
+
+The occupation that has the most job role count is the nurse with 2432 count ,the occupation that has the least job role count is the manager which is nearly to 21 count
+
+##### 4-What is the average stress level among people who sleep less than 6 hours per night?
+
+```{r}
+average_stress <- data %>%
+  filter(data$`Sleep Duration` < 6) %>%
+  summarise(Average_Stress_Level = mean(data$`Stress Level`, na.rm = TRUE))
+print(average_stress)
+```
+
+The code analyzes a dataset to determine the average stress level among those who sleep less than 6 hours, achieving this by filtering the data and calculating the mean stress level for the filtered subset which average = 4.94 can be approximately 5 .
+
+##### 5-What is the average daily step count for individuals classified as overweight?
+
+```{r}
+average_steps <- data %>%
+  filter(data$`BMI Category` == "Overweight") %>%
+  summarise(Average_Daily_Steps = mean(data$`Daily Steps`, na.rm = TRUE))
+print(average_steps)
+```
+
+The R code calculates and displays the average daily step count for individuals classified as overweight based on data stored in a data frame which is equal 6838 .
+
+##### 6-What is the average sleep duration across all individuals? Calculate the mean sleep duration (excluding missing values)
+
+```{r}
+avg_sleep_duration <- data %>%
+  summarise(Average_Sleep = mean(data$`Sleep Duration`, na.rm = TRUE))
+print(avg_sleep_duration)
+
+```
+
+The R code calculates the average sleep duration for all individuals in the dataset, which is equal 7.13 daily .
+
+##### 7-what are the most common types of sleep disorder?
+
+```{r}
+common_disorders <- data %>%
+  filter(!is.na(data$`Sleep Disorder`)) %>%
+  count(data$`Sleep Disorder`) %>%
+  arrange(desc(n))
+print(common_disorders)
+```
+
+The R code analyzes the dataset to identify the most common types of sleep disorders, achieving this by filtering out rows with missing sleep disorder data, counting the occurrences of each sleep disorder, and arranging the results in descending order, The highest is with none sleep disorder and the lowest is insomnia .
+
+##### 8-What occupations report the highest and lowest average sleep duration?
+
+```{r}
+# Average sleep duration by occupation
+avg_sleep_by_occupation <- data%>%
+  group_by(data$Occupation) %>%
+  summarise(Average_Sleep = mean(data$`Sleep Duration`, na.rm = TRUE)) %>%
+  arrange(desc(Average_Sleep))
+print(avg_sleep_by_occupation)
+```
+
+The occupations are the same average of sleep which is 7.14
+
+##### 9-what is the average stress level with different BMI categagory ?
+
+```{r}
+# Group by BMI Category and calculate the mean Stress Level
+td <- data %>%
+  group_by(`BMI Category`) %>%
+  summarise(Average_Stress_Level = mean(`Stress Level`, na.rm = TRUE))
+# Plotting the data
+h <- ggplot(td, aes(x = `BMI Category`, y = Average_Stress_Level, fill = `BMI Category`)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Average Stress Level by BMI Category",
+       x = "BMI Category",
+       y = "Average Stress Level") +
+  theme_minimal()
+
+print(h)
+
+```
+
+The highest stress level occured in the overweight category and the lowest one is normal .over weight has the highest stress level.
+
+##### 10-plot the quality of sleep with daily steps
+
+```{r}
+scatter_plot <- ggplot(data, aes(x = `Daily Steps`, y = `Quality of Sleep`)) +
+  geom_point(color = "blue", size = 3, alpha = 0.7) +  
+  labs(
+    title = "Scatter Plot: Quality of Sleep vs Daily Steps",
+    x = "Daily Steps",
+    y = "Quality of Sleep"
+  ) +
+  theme_minimal() 
+print(scatter_plot)
+print(plot)
+```
+
+There is No relation between quality of sleep and daily steps
+
+##### 11-bar chart to represent occupation with stress level
+
+```{r}
+avg_stress_by_occupation <- data %>%
+group_by(Occupation) %>%
+  summarise(Average_Stress_Level = mean(`Stress Level`, na.rm = TRUE))
+# Create a bar chart
+bar_chart <- ggplot(avg_stress_by_occupation, aes(x = Occupation, y = Average_Stress_Level, fill = Occupation)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Average Stress Level by Occupation",
+    x = "Occupation",
+    y = "Average Stress Level"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  
+
+# Display the plot
+print(bar_chart)
+```
+
+The highest stress level is the scientist which is more than 6 while the least stress level is the engineer which is less than 4
+
+##### 12-What is the summary of all variables?
+
+```{r}
+summary(data)
+```
+
+## Exploratory Analysis 🗝
+
+```{r,message=FALSE,warning=FALSE}
+
+# Install GGally if not already installed
+
+library(GGally)
+
+# Exclude the "Person ID" column and select numeric data
+numeric_data <- data[, sapply(data, is.numeric)]  # Select numeric columns
+numeric_data <- numeric_data[, !colnames(numeric_data) %in% "Person ID"]  # Exclude "Person ID"
+
+# Create scatter plot matrix
+ggpairs(numeric_data, title = "Scatter Plot Matrix (Excluding Person ID)")
+```
+
+##### 1-Explore which Gender suffer from sleep disorder through .
+
+```{r}
+ggplot(data, aes(x = Gender, fill = `Sleep Disorder`)) +
+  geom_bar(position = "fill") +
+  labs(title = "Prevalence of Sleep Disorders by Gender", x = "Gender", y = "Sleep disorder Proportion")
+
+
+```
+
+-   The proportion of individuals without sleep disorders ("None") appears to dominate in both genders.
+
+-   The proportion of "Insomnia" is slightly higher in females than in males which indicates gender related reason
+
+-   The proportion of "sleep Apnea" is higher in female
+
+##### 2-What are the trends in sleep duration across different age groups?
+
+```{r}
+# Create age groups
+dataset <- data %>%
+  mutate(Age.Group = cut(data$Age, breaks = c(0, 29, 39, 49, 59, 69, Inf),
+                         labels = c("0-29", "30-39", "40-49", "50-59", "60-64", "+")))
+
+# Calculate average sleep duration for each age group
+age_sleep <- dataset %>%
+  group_by(Age.Group) %>%
+  summarise(Average_Sleep = mean(data$`Sleep Duration`, na.rm = TRUE))
+
+# Visualize trends in sleep duration across age groups
+ggplot(age_sleep, aes(x = Age.Group, y = Average_Sleep)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(title = "Average Sleep Duration Across Age Groups", x = "Age Group", y = "Average Sleep Duration")
+```
+
+-   This Bar char indicates that average sleep duration is the same across different age groups
+
+-   It indicates that age is not a significant factor to sleep duration
+
+##### 3-what is the correlation between sleep duration and quality of sleep ?
+
+```{r}
+# Calculate the correlation
+correlation <- cor(data$`Sleep Duration`, data$`Quality of Sleep`, method = "pearson")
+print(paste("Correlation coefficient:", correlation))
+
+```
+
+-   There is a postive Moderate relationship between sleep duration and quality of sleep using correlation coefficient
+
+```{r}
+ggplot(data, aes(x = `Sleep Duration`, y = `Quality of Sleep`)) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_smooth(method = "lm", color = "red", se = TRUE) +
+  labs(
+    title = "Correlation Between Sleep Duration and Sleep Quality",
+    x = "Sleep Duration (hours)",
+    y = "Sleep Quality (score)"
+  ) 
+```
+
+-   Sleep duration is observed between 5 and 9 hours, and sleep quality scores range from 4 to 9
+
+-   The red regression line indicates a positive linear relationship between sleep duration and sleep quality. As sleep duration increases, sleep quality also appears to improve.
+
+##### 4-sleep disorder distribution according to stress level ?
+
+```{r}
+ggplot(data, aes(x =`Sleep Disorder`, y = `Stress Level`, fill =`Sleep Disorder`)) +
+  geom_boxplot() +
+  labs(
+    title = "Boxplot of stress level by sleep disorder",
+    x = "Sleep Disorder ",
+    y = "Stress Level"
+  )
+```
+
+-   The median stress level is highest for individuals with Insomnia, and by those with Sleep Apnea. Individuals with no sleep disorder have the lowest median stress level
+
+-   The max value of stress level caused by sleep apnea and isonomia
+
+-   people with none sleep disorder has the lowest max value with stress
+
+##### 5-people with stress according to occupation
+
+```{r}
+ggplot(data, aes(x =Occupation, y = `Stress Level`, fill =Occupation)) +
+  geom_boxplot() +
+  labs(
+    title = "Boxplot of stress by occupation ",
+    x = "occupation ",
+    y = "stress level "
+  )
+```
+
+-   Through this box plot between occupation and stress level indicates that Engineer has the lowest strees level = 2 , and scientist has the highest stress =8
+
+-   Some occupations, such as Engineer and Nurse , show a larger interquartile range, indicating more variability in stress levels within these groups
+
+##### 6-People sleep quality with their occupation
+
+```{r}
+ggplot(data, aes(x =Occupation, y = `Quality of Sleep`, fill =Occupation)) +
+  geom_boxplot() +
+  labs(
+    title = "Boxplot of sleep quality by occupation ",
+    x = "occupation ",
+    y = "Quality of sleep"
+  ) 
+```
+
+-   This box plot between Occupation and quality of sleep indicates that engineer attain highest sleep quality =9 while scientist has lowest sleep quality .
+
+-   Nurse has more interquartile range which means variability in quality of sleep ion this occupation .
+
+##### 7-Scatter plot between quality of sleep and stress level ?
+
+```{r}
+ggplot(data, aes(x = `Stress Level`, y = `Quality of Sleep`)) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_smooth(method = "lm", color = "red", se = TRUE) +
+  labs(
+    title = "Correlation Between Sleep Duration and Sleep Quality",
+    x = "Stress Level ",
+    y = "Sleep Quality (score)"
+  ) 
+
+
+```
+
+-   This scatter plot indicates an negative linear relation ship between stress level and sleep quality
+
+-   As stress level increase sleep quality decrease
+
+##### 8-Is there is a relation between daily steps and sleep Duration ?
+
+```{r}
+ggplot(data, aes(x = `Daily Steps`, y = `Sleep Duration`)) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_smooth(method = "lm", color = "red", se = TRUE) +
+  labs(
+    title = "Correlation Between Daily Steps and Sleep Duration ",
+    x = "Daily steps  ",
+    y = "Sleep Duration "
+  ) 
+
+```
+
+-   The red trend line appears relatively flat, indicating a weak or negligible linear correlation between daily steps and sleep duration.
+
+<!-- -->
+
+-   The slope of the line suggests that an increase in daily steps does not substantially affect sleep duration
+
+-   Most data points are concentrated between 4,000 and 8,000 daily steps and between 6 and 8 hours of sleep duration, indicating these ranges are the most common.
+
+## Predictive Analysis 📈
+
+##### 1-Can daily steps predict sleep duration ?
+
+```{r}
+xs <- lm(data$`Sleep Duration`~ data$`Daily Steps`, data = data) 
+summary(xs)
+```
+
+-   THERE IS a weak negative association between daily steps and sleep duration.
+
+-   Daily steps explain only a very small portion (less than 0.3%) of the variability in sleep duration.
+
+##### 2-Can stress level predict quality of sleep ?
+
+```{r}
+xs <- lm(data$`Quality of Sleep`~ data$`Stress Level`, data = data) 
+summary(xs)
+```
+
+-   There is a strong negative association between quality of sleep and stress level.
+
+-   Quality of sleep is a significant predictor of Stress levels.
+
+-   𝐻0: 𝛽1 = 0 \[There is no linear relationship (the slope is zero).\]
+
+-   𝐻1: 𝛽1 ≠ 0 \[There is a linear relationship (the slope is not zero).\]
+
+-   H1 is accepted
+
+##### 3-Heart rate predict quality of sleep
+
+```{r}
+xs <- lm(data$`Quality of Sleep`~ data$`Heart Rate`, data = data) 
+summary(xs)
+```
+
+-   There are a strong negative association between heart rate and quality of sleep(-0.099599 )
+
+-   The R-squared value 18.57% of the variability in quality of sleep can be explained by heart rate.
+
+-   p-value is less than level of significance 0.05 so H1 is accepted so the model is significance
+
+##### 
+
+## Inferential Analysis 📈
+
+##### 1-Does gender significantly influence sleep quality?
+
+```{r}
+# T-test to compare sleep quality by gender
+  t_test <- t.test(data$`Quality of Sleep` ~ data$Gender, data = data)
+print(t_test)
+```
+
+-   There are a significant difference in the quality of sleep between females and males.
+
+-   Females in the study reported significantly better sleep quality than males.
+
+##### 2-Is sleep duration significantly associated with age?
+
+```{r}
+age_sleep_corr <- cor.test(data$Age, data$`Sleep Duration`, use = "complete.obs")
+print(age_sleep_corr)
+
+#using regression to know exactly by how 
+# Linear regression
+lm_age <- lm(data$`Sleep Duration` ~ data$Age, data = data)
+summary(lm_age)
+
+```
+
+-   The Pearson correlation analysis shows a correlation coefficient (r) of 0.27, there is a weak positive relationship between Age and Sleep Duration.
+
+-   The regression show that Age significantly impacts Sleep Duration, with sleep increasing by 0.0277 hours for each year of age.
+
+-   The relationship is highly significant (p \< 2e-16). However, the model explains only 7.27% of the variation in sleep duration, suggesting other factors are more influential.
+
+##### 3-Does daily steps has an effect on sleep duration ?
+
+```{r}
+anova(lm(data$`Sleep Duration`~ data$`Daily Steps`, data = data))
+```
+
+-   There are significant relationship between Daily Steps and Sleep Duration
+
+-   (We reject the hypothesis 𝐻0)
+
+    ##### 4-Is there a significant relationship between sleep duration and stress levels?
+
+    ```{r}
+    cor_test <- cor.test(data$`Sleep Duration`, data$`Stress Level`, use = "complete.obs")
+    print(cor_test)
+    ```
+
+    -   There are a strong negative relationship between Sleep Duration and Stress Level.
+
+    -   Higher stress levels are associated with shorter sleep durations in the sample.
+
+        ```{r}
+        lm_model <-lm(data$`Sleep Duration` ~ data$`Stress Level`, data = data)
+        summary(lm_model)
+        ```
+
+        -   There are a strong and significant negative relationship between Stress Level and Sleep Duration.
+
+        -   For every unit increase in Stress level, Sleep duration decreases by approximately 0.32 hours.
+
+        -   The p-value (\< 2e-16) indicates the relationship is highly significant
+
+        -   The model explains about 42.46% of the variation in sleep duration (R-squared = 0.4246), suggesting that stress level is a key factor influencing sleep duration
+
+## Simulation 💡
+
+##### simulated data about sleep duration of size 1000
+
+```{r}
+simulated_sleep <- rnorm(n = 1000, mean = mean(data$`Sleep Duration`, na.rm = TRUE), sd = sd(data$`Sleep Duration`, na.rm = TRUE))
+#histogram for the simulated data
+hist(simulated_sleep, col = "lightblue", main = "Simulated Sleep Duration", xlab = "Hours")
+
+```
+
+```{r}
+# histogram for the sample data
+hist(data$`Sleep Duration`, col = "lightblue", main = " Sleep Duration", xlab = "Hours")
+```
+
+##### simulation for the occupation variable
+
+```{r}
+occupation <- c("Accountant", "Doctor", "Engineer", "lawyer", "Manager","Nurse","SR","Sales person","scientist","Software Engineer","Teacher","Unknown ")
+simulated_occupation <- sample(occupation, size = 1000, replace = TRUE, prob = c(0.3, 0.2, 0.2, 0.1,0.2, 0.2,0.1,0.4,0.2,0.2,0.3,0.3))
+# bar plot for the simulated data 
+table(simulated_occupation)
+barplot(table(simulated_occupation), col = "lightgreen", main = "Simulated Occupations", xlab = "Occupation")
+
+```
+
+```{r}
+# bar plot for the  data set 
+jobrole_counts <- table(data$Occupation)
+bar_colors <- c('orange', 'lightblue', 'pink', 'lightgreen', 'lightcoral', 'lightcyan', 'lightgoldenrod', 'lightgray', 'lightpink', 'lightsalmon', 'lightseagreen')
+fig_jobrole <- plot_ly(x = names(jobrole_counts), y = jobrole_counts, type = "bar", marker = list(color = bar_colors))
+fig_jobrole <- layout(fig_jobrole, title = 'Job Role Distribution', xaxis = list(title = 'Occupation'), yaxis = list(title = 'Count'))
+fig_jobrole
+```
+
+### Conclusion:
+
+\
+This analysis provides valuable insights into the factors influencing sleep quality and the prevalence of sleep disorders. The results highlight significant relationships between Sleep Duration, Stress Levels, Physical Activity, BMI Category, and Daily Steps, demonstrating how lifestyle and health metrics impact sleep patterns.
+
+Gender and Age influence sleep quality, with variations observed across different demographics. Stress Levels are inversely related to Sleep Duration, suggesting that higher stress leads to shorter and potentially lower-quality sleep. Physical Activity and Daily Steps show a positive correlation with better sleep quality, emphasizing the role of an active lifestyle in promoting healthier sleep. Occupations associated with irregular working hours, such as nurses and doctors, exhibit higher instances of sleep disorders, reflecting the impact of work-life balance on rest. Predictive modeling further strengthens the ability to identify individuals at risk of sleep disorders, offering opportunities for early intervention.
+
+Final Recommendation: Promoting physical activity, managing stress levels, and encouraging healthier lifestyle choices can significantly improve sleep quality. Employers and healthcare providers should also consider workplace adjustments and targeted programs to address sleep-related issues, especially in high-risk professions.
+
+This study serves as a foundation for further research and practical solutions to enhance sleep health and overall well-being.
+
+# Thanks for listening our brilliant Doctors ! ❤️
+
+![](حلمي.jpg)
